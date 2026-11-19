@@ -60,11 +60,11 @@ alter table public.cards enable row level security;
 alter table public.card_scheduling enable row level security;
 alter table public.review_logs enable row level security;
 
-create policy "profile owner" on public.profiles for all using (auth.uid() = id) with check (auth.uid() = id);
-create policy "deck owner" on public.decks for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "card owner" on public.cards for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "schedule owner" on public.card_scheduling for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "review owner" on public.review_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "profile owner" on public.profiles for all to authenticated using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
+create policy "deck owner" on public.decks for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "card owner" on public.cards for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "schedule owner" on public.card_scheduling for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "review owner" on public.review_logs for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 create index decks_user_id_idx on public.decks(user_id);
 create index cards_deck_id_idx on public.cards(deck_id);
