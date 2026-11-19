@@ -1,135 +1,93 @@
-import { useMemo, useState } from 'react'
-import {
-  BookOpen, Brain, ChartNoAxesColumnIncreasing, ChevronDown, CircleHelp, Clock3,
-  CloudUpload, Flame, Flower2, FlaskConical, House, Leaf, Library,
-  Search, Settings, Sparkles, Sprout, Sun, CheckCircle2, ArrowRight, MoreHorizontal,
-  Plus, X, Check, AlertCircle, Play,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Activity, ArrowLeft, ArrowRight, BookOpen, Brain, CheckCircle2, Clock3, CloudUpload, Download, Flame, House, Leaf, Library, Plus, Play, Search, Settings, Sparkles, Sprout, X, AlertCircle, Check } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
+import { supabase } from './lib/supabase'
 import { importSchema } from './lib/import-schema'
+import { getFsrsCard, newFsrsCard, rateFsrsCard, Rating } from './lib/fsrs'
 
-type Card = { type?: 'basic' | 'cloze'; front?: string; back?: string; text?: string; tags?: string[] }
-type Deck = { name: string; cards: number; due: number; progress: number; tone: string; icon: typeof Leaf }
-
-const initialDecks: Deck[] = [
-  { name: 'Biology', cards: 120, due: 15, progress: 68, tone: 'sage', icon: Sprout },
-  { name: 'Chemistry', cards: 85, due: 10, progress: 72, tone: 'olive', icon: FlaskConical },
-  { name: 'Mathematics', cards: 64, due: 8, progress: 61, tone: 'sand', icon: ChartNoAxesColumnIncreasing },
-]
-const chartData = [
-  { day: 'Oct 1', cards: 26 }, { day: 'Oct 4', cards: 42 }, { day: 'Oct 8', cards: 52 },
-  { day: 'Oct 11', cards: 59 }, { day: 'Oct 15', cards: 55 }, { day: 'Oct 18', cards: 70 },
-  { day: 'Oct 21', cards: 76 }, { day: 'Oct 24', cards: 62 }, { day: 'Oct 27', cards: 72 },
-  { day: 'Oct 30', cards: 94 },
-]
-const sampleJSON = JSON.stringify({ deck: 'Biology', cards: [
-  { type: 'basic', front: 'What is the powerhouse of the cell?', back: 'Mitochondrion', tags: ['cell'] },
-  { type: 'cloze', text: 'Photosynthesis takes place in the {{c1::chloroplast}}.', tags: ['plant'] },
-]}, null, 2)
-
-export default function App() {
-  const [page, setPage] = useState('Dashboard')
-  const [json, setJson] = useState('')
-  const [payload, setPayload] = useState<{ deck: string; cards: Card[] } | null>(null)
-  const [error, setError] = useState('')
-  const [decks, setDecks] = useState(initialDecks)
-  const [notice, setNotice] = useState('')
-  const [search, setSearch] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
-  const totalCards = decks.reduce((sum, deck) => sum + deck.cards, 0)
-  const filteredDecks = useMemo(() => decks.filter(deck => deck.name.toLowerCase().includes(search.toLowerCase())), [decks, search])
-
-  function previewImport() {
-    setError('')
-    setPayload(null)
-    const parsed = importSchema.safeParse(JSON.parse(json))
-    if (!parsed.success) {
-      setError(parsed.error.issues.map(issue => issue.message).join(' · '))
-      return
-    }
-    setPayload(parsed.data)
-    setShowPreview(true)
-  }
-  function handleImport() {
-    if (!payload) return
-    const existing = decks.find(deck => deck.name.toLowerCase() === payload.deck.toLowerCase())
-    if (existing) setDecks(decks.map(deck => deck.name === existing.name ? { ...deck, cards: deck.cards + payload.cards.length } : deck))
-    else setDecks([...decks, { name: payload.deck, cards: payload.cards.length, due: 0, progress: 0, tone: 'sage', icon: BookOpen }])
-    setNotice(`Imported ${payload.cards.length} cards into ${payload.deck}`)
-    setShowPreview(false); setJson(''); setPayload(null)
-    setPage('Library')
-  }
-
-  const nav = [
-    { label: 'Dashboard', icon: House }, { label: 'Library', icon: Library },
-    { label: 'Import', icon: CloudUpload }, { label: 'Study', icon: Brain },
-    { label: 'Statistics', icon: ChartNoAxesColumnIncreasing },
-  ]
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <div className="brand"><span className="brand-mark"><Leaf size={23} /></span><span>Amplicard</span></div>
-      <div className="side-label">WORKSPACE</div>
-      <nav>{nav.map(item => <button key={item.label} className={page === item.label ? 'nav-item active' : 'nav-item'} onClick={() => { setPage(item.label); setNotice('') }}><item.icon size={19} strokeWidth={1.8}/><span>{item.label}</span>{item.label === 'Study' && <span className="nav-count">24</span>}</button>)}</nav>
-      <div className="sidebar-bottom">
-        <div className="side-label">PREFERENCES</div>
-        <button className="nav-item" onClick={() => setPage('Settings')}><Settings size={19}/><span>Settings</span></button>
-        <button className="nav-item"><CircleHelp size={19}/><span>Help center</span></button>
-        <div className="sidebar-note"><div className="note-art"><Sprout size={30}/></div><strong>Grow your knowledge.</strong><p>A little review every day goes a long way.</p></div>
-        <button className="theme-toggle"><Sun size={18}/> Light mode <ChevronDown size={15}/></button>
-      </div>
-      <div className="profile"><div className="avatar">N</div><div><strong>My workspace</strong><span>Personal account</span></div><MoreHorizontal size={19}/></div>
-    </aside>
-    <main className="main-area">
-      <header className="topbar">
-        <div className="searchbox"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search cards, decks, or tags..." /><kbd>⌘ K</kbd></div>
-        <div className="top-actions"><span className="sync-status"><i/> Local workspace</span><button className="icon-button"><CircleHelp size={19}/></button></div>
-      </header>
-      {notice && <div className="notice"><CheckCircle2 size={17}/>{notice}<button onClick={() => setNotice('')}><X size={15}/></button></div>}
-      {page === 'Dashboard' && <div className="page-content">
-        <div className="page-heading"><div><div className="eyebrow">YOUR LEARNING SPACE</div><h1>A fresh page, a little progress. <span>✳</span></h1><p>Make today count, one card at a time.</p></div><button className="primary-button" onClick={() => setPage('Study')}><Play size={16} fill="currentColor"/> Start studying <ArrowRight size={16}/></button></div>
-        <section className="stats-grid">
-          <Stat icon={Clock3} label="Due today" value="24" foot="Ready when you are" tone="sage"/>
-          <Stat icon={CheckCircle2} label="Reviewed" value="18" foot="Cards completed today" tone="green"/>
-          <Stat icon={Library} label="Total cards" value={String(totalCards)} foot={`${decks.length} active decks`} tone="sand"/>
-          <Stat icon={Flame} label="Study streak" value="12 days" foot="Keep the rhythm going" tone="clay"/>
-        </section>
-        <div className="content-grid">
-          <section className="panel deck-panel">
-            <div className="panel-heading"><div><span className="panel-icon"><BookOpen size={19}/></span><h2>Your decks</h2></div><button className="text-button" onClick={() => setPage('Library')}>View library <ArrowRight size={15}/></button></div>
-            <div className="deck-list">{filteredDecks.map(deck => <DeckRow key={deck.name} deck={deck} onClick={() => setPage('Study')}/>)}
-              {filteredDecks.length === 0 && <p className="empty-state">No decks match your search.</p>}</div>
-            <button className="add-deck" onClick={() => setPage('Library')}><Plus size={16}/> Browse all decks</button>
-          </section>
-          <section className="panel import-panel">
-            <div className="panel-heading"><div><span className="panel-icon"><Sparkles size={19}/></span><h2>AI JSON Import</h2><span className="ready-pill">Ready to import</span></div></div>
-            <p className="panel-description">Bring your notes to life. Paste the JSON generated by your AI assistant.</p>
-            <textarea className="json-input" value={json} onChange={e => setJson(e.target.value)} placeholder={'Paste your flashcard JSON here...\n\n{\n  "deck": "Biology",\n  "cards": [...]\n}'}/>
-            {error && <div className="error-text"><AlertCircle size={15}/>{error}</div>}
-            <div className="import-actions"><button className="sample-button" onClick={() => { setJson(sampleJSON); setError('') }}>Load sample</button><button className="primary-button" disabled={!json.trim()} onClick={() => { try { previewImport() } catch { setError('Invalid JSON. Check the syntax and try again.') } }}>Preview import <ArrowRight size={16}/></button></div>
-            <div className="import-foot"><Check size={14}/> Supports Basic Q&A and Cloze cards</div>
-          </section>
-        </div>
-        <div className="content-grid lower-grid">
-          <section className="panel chart-panel"><div className="panel-heading"><div><span className="panel-icon"><ChartNoAxesColumnIncreasing size={19}/></span><h2>Study activity</h2></div><span className="period-label">Last 30 days <ChevronDown size={14}/></span></div><p className="panel-description">Cards reviewed over time</p><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e9e8dc" strokeDasharray="3 4"/><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#898b7b', fontSize: 11 }}/><Tooltip cursor={{ fill: '#f0f1e8' }}/><Bar dataKey="cards" fill="#6e8b68" radius={[5,5,0,0]} maxBarSize={28}/></BarChart></ResponsiveContainer></div></section>
-          <section className="panel activity-panel"><div className="panel-heading"><div><span className="panel-icon"><Clock3 size={19}/></span><h2>Recent activity</h2></div><button className="text-button">See all <ArrowRight size={15}/></button></div><Activity color="green" title="Reviewed 18 cards" detail="Biology · 90% accuracy" time="Today, 10:42"/><Activity color="sage" title="Imported a new deck" detail="Cell Biology · 24 cards" time="Yesterday"/><Activity color="clay" title="Completed a study session" detail="Chemistry · 12 cards" time="Yesterday"/></section>
-        </div>
-      </div>}
-      {page === 'Library' && <div className="page-content"><div className="page-heading"><div><div className="eyebrow">COLLECTION</div><h1>Your deck library</h1><p>All your subjects, thoughtfully organized.</p></div><button className="primary-button" onClick={() => setPage('Import')}><Plus size={16}/> Import cards</button></div><section className="library-grid">{filteredDecks.map(deck => <div className="library-card" key={deck.name}><div className={`deck-art ${deck.tone}`}><deck.icon size={27}/></div><h3>{deck.name}</h3><p>{deck.cards} cards · {deck.due} due today</p><div className="progress-track"><span style={{width:`${deck.progress}%`}}/></div><div className="library-card-foot"><span>{deck.progress}% learned</span><button className="small-study" onClick={() => setPage('Study')}>Study <ArrowRight size={14}/></button></div></div>)}</section></div>}
-      {page === 'Import' && <div className="page-content"><div className="page-heading"><div><div className="eyebrow">ADD TO YOUR LIBRARY</div><h1>Import flashcards</h1><p>Paste structured JSON from your AI-generated study notes.</p></div></div><section className="panel import-page-panel"><div className="import-guide"><Sparkles size={22}/><div><strong>From notes to flashcards</strong><p>Ask your AI to return a JSON object with a deck name and a cards array. Preview everything before saving.</p></div></div><textarea className="json-input large" value={json} onChange={e => setJson(e.target.value)} placeholder={sampleJSON}/>{error && <div className="error-text"><AlertCircle size={15}/>{error}</div>}<div className="import-actions"><button className="sample-button" onClick={() => setJson(sampleJSON)}>Load sample JSON</button><button className="primary-button" disabled={!json.trim()} onClick={() => { try { previewImport() } catch { setError('Invalid JSON. Check the syntax and try again.') } }}>Validate & preview <ArrowRight size={16}/></button></div></section></div>}
-      {page === 'Study' && <div className="page-content"><div className="page-heading"><div><div className="eyebrow">FOCUS SESSION</div><h1>Time to remember.</h1><p>Choose a deck to begin your review.</p></div></div><section className="study-chooser">{decks.map(deck => <DeckRow key={deck.name} deck={deck} onClick={() => setNotice(`Study session for ${deck.name} is coming next.`)}/>)}</section></div>}
-      {(page === 'Statistics' || page === 'Settings') && <div className="page-content"><div className="page-heading"><div><div className="eyebrow">AMPlicard</div><h1>{page}</h1><p>{page === 'Statistics' ? 'Your learning trends will appear here as you review.' : 'Personalize your study space.'}</p></div></div><section className="panel placeholder-panel"><Flower2 size={34}/><h2>{page === 'Statistics' ? 'Your progress is taking root' : 'A space that works for you'}</h2><p>{page === 'Statistics' ? 'Complete a few review sessions to start building your learning history.' : 'Preferences and backup options will be available here.'}</p></section></div>}
-    </main>
-    {showPreview && payload && <div className="modal-backdrop" onClick={() => setShowPreview(false)}><section className="preview-modal" onClick={e => e.stopPropagation()}><div className="modal-heading"><div><span className="eyebrow">IMPORT PREVIEW</span><h2>{payload.deck}</h2><p>{payload.cards.length} cards ready to add</p></div><button className="icon-button" onClick={() => setShowPreview(false)}><X size={19}/></button></div><div className="preview-list">{payload.cards.slice(0,5).map((card,i) => <div className="preview-card" key={i}><span>{String(i+1).padStart(2,'0')}</span><div><strong>{card.type === 'cloze' ? 'Cloze deletion' : card.front}</strong><p>{card.type === 'cloze' ? card.text : card.back}</p></div><CheckCircle2 size={17}/></div>)}</div>{payload.cards.length > 5 && <p className="muted-note">And {payload.cards.length - 5} more cards…</p>}<div className="modal-actions"><button className="sample-button" onClick={() => setShowPreview(false)}>Back to edit</button><button className="primary-button" onClick={handleImport}>Import {payload.cards.length} cards <ArrowRight size={16}/></button></div></section></div>}
-  </div>
+type Deck = { id:string; name:string; cards:number; due:number }
+type CardRow = { id:string; deck_id:string; card_type:'basic'|'cloze'; front:string|null; back:string|null; cloze_text:string|null; tags:string[]; card_scheduling:{fsrs_state:any;due_at:string}|null }
+const sample = JSON.stringify({deck:'Biology',cards:[{type:'basic',front:'What is the powerhouse of the cell?',back:'Mitochondrion',tags:['cell']},{type:'cloze',text:'Photosynthesis takes place in the {{c1::chloroplast}}.'},{front:'What molecule stores genetic information?',back:'DNA'}]},null,2)
+const nav = [{label:'Dashboard',icon:House},{label:'Library',icon:Library},{label:'Import',icon:CloudUpload},{label:'Study',icon:Brain},{label:'Statistics',icon:Activity}]
+export default function App(){
+ const [page,setPage]=useState('Dashboard'),[uid,setUid]=useState(''),[ready,setReady]=useState(false),[authError,setAuthError]=useState('')
+ const [decks,setDecks]=useState<Deck[]>([]),[cards,setCards]=useState<CardRow[]>([]),[logs,setLogs]=useState<any[]>([])
+ const [json,setJson]=useState(''),[parsed,setParsed]=useState<any>(null),[invalid,setInvalid]=useState<string[]>([]),[preview,setPreview]=useState(false)
+ const [error,setError]=useState(''),[notice,setNotice]=useState(''),[search,setSearch]=useState(''),[busy,setBusy]=useState(false)
+ const [activeDeck,setActiveDeck]=useState<Deck|null>(null),[queue,setQueue]=useState<CardRow[]>([]),[revealed,setRevealed]=useState(false)
+ const load=useCallback(async(id:string)=>{
+  if(!supabase)return
+  const [d,c,l]=await Promise.all([
+   supabase.from('decks').select('id,name').eq('user_id',id).order('created_at'),
+   supabase.from('cards').select('id,deck_id,card_type,front,back,cloze_text,tags,card_scheduling(fsrs_state,due_at)').eq('user_id',id),
+   supabase.from('review_logs').select('id,reviewed_at,rating').eq('user_id',id).order('reviewed_at',{ascending:false}).limit(1000)
+  ])
+  if(d.error)throw d.error;if(c.error)throw c.error;if(l.error)throw l.error
+  const cr=(c.data??[]) as unknown as CardRow[]
+  setCards(cr);setLogs(l.data??[])
+  setDecks((d.data??[]).map(x=>{const own=cr.filter(y=>y.deck_id===x.id);return {...x,cards:own.length,due:own.filter(y=>!y.card_scheduling?.due_at||Date.parse(y.card_scheduling.due_at)<=Date.now()).length}}))
+ },[])
+ useEffect(()=>{let live=true;(async()=>{if(!supabase)throw Error('Supabase URL or publishable key is missing.')
+  const {data:s,error:e}=await supabase.auth.getSession();if(e)throw e
+  let user=s.session?.user
+  if(!user){const {data,error}=await supabase.auth.signInAnonymously();if(error)throw error;user=data.user??undefined}
+  if(!user)throw Error('Could not create a personal session.')
+  if(live){setUid(user.id);await load(user.id);setReady(true)}
+ })().catch(e=>{if(live){setAuthError(e.message+' — Enable Anonymous Sign-Ins in Supabase Authentication → Providers.');setReady(true)}})
+ return()=>{live=false}},[load])
+ const refresh=async()=>{if(uid)await load(uid)}
+ const due=decks.reduce((n,d)=>n+d.due,0),today=new Date();today.setHours(0,0,0,0)
+ const todayCount=logs.filter(x=>Date.parse(x.reviewed_at)>=today.getTime()).length
+ const chart=useMemo(()=>{const m=new Map<string,number>();for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);m.set(d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),0)}logs.forEach(x=>{const k=new Date(x.reviewed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});if(m.has(k))m.set(k,(m.get(k)??0)+1)});return [...m].map(([day,cards])=>({day,cards}))},[logs])
+ const filtered=decks.filter(d=>d.name.toLowerCase().includes(search.toLowerCase()))
+ function validate(){setError('');let raw:any;try{raw=JSON.parse(json)}catch{setError('JSON syntax invalid.');return}
+  if(!raw||!Array.isArray(raw.cards)){setError('Expected an object with a cards array.');return}
+  const valid:any[]=[],bad:string[]=[]
+  raw.cards.forEach((v:any,i:number)=>{const r=importSchema.shape.cards.element.safeParse(v);if(r.success)valid.push(r.data);else bad.push('Card '+(i+1)+': '+r.error.issues.map(x=>x.message).join(', '))})
+  if(!valid.length){setInvalid(bad);setError('No valid cards.');return}
+  const name=importSchema.shape.deck.safeParse(raw.deck??'Imported deck');if(!name.success){setError('Deck name is invalid.');return}
+  setInvalid(bad);setParsed({deck:name.data,cards:valid});setPreview(true)
+ }
+ async function doImport(){if(!supabase||!parsed)return;setBusy(true);setError('')
+  try{let d=decks.find(x=>x.name.toLowerCase()===parsed.deck.toLowerCase())
+   if(!d){const r=await supabase.from('decks').insert({user_id:uid,name:parsed.deck}).select('id,name').single();if(r.error)throw r.error;d={...r.data,cards:0,due:0}}
+   const known=cards.filter(c=>c.deck_id===d!.id)
+   const add=parsed.cards.filter((c:any)=>!known.some(old=>(old.card_type==='cloze'?old.cloze_text:(old.front+'|'+old.back))?.trim().toLowerCase()===(c.type==='cloze'?c.text:(c.front+'|'+c.back)).trim().toLowerCase()))
+   if(!add.length){setNotice('All valid cards already exist in this deck.');setPreview(false);return}
+   const ins=await supabase.from('cards').insert(add.map((c:any)=>({user_id:uid,deck_id:d!.id,card_type:c.type??'basic',front:c.type==='cloze'?null:c.front,back:c.type==='cloze'?null:c.back,cloze_text:c.type==='cloze'?c.text:null,tags:c.tags??[]}))).select('id')
+   if(ins.error)throw ins.error
+   const sched=await supabase.from('card_scheduling').insert((ins.data??[]).map(c=>{const s=newFsrsCard();return{card_id:c.id,user_id:uid,due_at:s.due.toISOString(),fsrs_state:s}}))
+   if(sched.error)throw sched.error
+   setPreview(false);setJson('');setNotice('Imported '+ins.data.length+' cards. '+invalid.length+' invalid cards were excluded after review.');await refresh()
+  }catch(e:any){setError(e.message)}finally{setBusy(false)}
+ }
+ async function createDeck(){const name=window.prompt('Deck name');if(!name?.trim()||!supabase)return;const r=await supabase.from('decks').insert({user_id:uid,name:name.trim()});if(r.error)setError(r.error.message);else{await refresh();setNotice('Deck created.')}}
+ function startStudy(d:Deck){const q=cards.filter(c=>c.deck_id===d.id&&(!c.card_scheduling?.due_at||Date.parse(c.card_scheduling.due_at)<=Date.now()));setActiveDeck(d);setQueue(q);setRevealed(false);setPage('Study')}
+ async function grade(rating:Rating){if(!supabase||!queue[0]?.card_scheduling?.fsrs_state)return;setBusy(true);try{
+  const c=queue[0],now=new Date(),res=rateFsrsCard(getFsrsCard(c.card_scheduling.fsrs_state),rating,now),s=res.card
+  const state=['new','learning','review','relearning'][s.state]??'new'
+  const u=await supabase.from('card_scheduling').update({fsrs_state:s,due_at:s.due.toISOString(),stability:s.stability,difficulty:s.difficulty,elapsed_days:s.elapsed_days,scheduled_days:s.scheduled_days,reps:s.reps,lapses:s.lapses,learning_steps:s.learning_steps,state,updated_at:now.toISOString()}).eq('card_id',c.id).eq('user_id',uid)
+  if(u.error)throw u.error
+  const l=await supabase.from('review_logs').insert({user_id:uid,card_id:c.id,rating:Number(rating),reviewed_at:now.toISOString()});if(l.error)throw l.error
+  setQueue(q=>q.slice(1));setRevealed(false);await refresh()
+ }catch(e:any){setError(e.message)}finally{setBusy(false)}}
+ function backup(){const blob=new Blob([JSON.stringify({format:'amplicard-backup-v1',exportedAt:new Date().toISOString(),decks,cards},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='amplicard-backup.json';a.click();URL.revokeObjectURL(url)}
+ if(!ready)return <div className="loading-screen"><div className="brand-mark"><Leaf/></div><strong>Preparing your study space…</strong></div>
+ if(authError)return <div className="loading-screen"><div className="auth-error"><AlertCircle size={28}/><h2>Cannot open Amplicard</h2><p>{authError}</p><button className="primary-button" onClick={()=>location.reload()}>Try again</button></div></div>
+ return <div className="app-shell">
+  <aside className="sidebar"><div className="brand"><span className="brand-mark"><Leaf size={23}/></span><span>Amplicard</span></div><div className="side-label">WORKSPACE</div><nav>{nav.map(n=><button key={n.label} className={page===n.label?'nav-item active':'nav-item'} onClick={()=>setPage(n.label)}><n.icon size={19}/><span>{n.label}</span>{n.label==='Study'&&<span className="nav-count">{due}</span>}</button>)}</nav><div className="sidebar-bottom"><div className="side-label">PREFERENCES</div><button className="nav-item" onClick={()=>setPage('Settings')}><Settings size={19}/><span>Settings & backup</span></button><div className="sidebar-note"><div className="note-art"><Sprout size={30}/></div><strong>Grow your knowledge.</strong><p>A little review every day goes a long way.</p></div><div className="theme-toggle"><Leaf size={18}/> Forest & sage theme</div></div><div className="profile"><div className="avatar">A</div><div><strong>Personal workspace</strong><span>Private anonymous session</span></div></div></aside>
+  <main className="main-area"><header className="topbar"><div className="searchbox"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search decks..."/></div><div className="top-actions"><span className="sync-status"><i/> Cloud sync active</span><button className="icon-button" onClick={()=>setPage('Settings')}><Settings size={18}/></button></div></header>
+   {notice&&<div className="notice"><CheckCircle2 size={17}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}{error&&<div className="error-banner"><AlertCircle size={16}/>{error}<button onClick={()=>setError('')}><X size={15}/></button></div>}
+   {page==='Dashboard'&&<div className="page-content"><div className="page-heading"><div><div className="eyebrow">YOUR LEARNING SPACE</div><h1>A fresh page, a little progress. <span>✳</span></h1><p>Your cards, your pace. Make today count.</p></div><button className="primary-button" onClick={()=>{const d=decks.find(x=>x.due>0);if(d)startStudy(d);else setPage('Library')}}><Play size={16}/> Start studying <ArrowRight size={16}/></button></div><section className="stats-grid"><Stat icon={Clock3} label="Due today" value={''+due} foot="Cards ready to review" tone="sage"/><Stat icon={CheckCircle2} label="Reviewed today" value={''+todayCount} foot="Completed reviews" tone="green"/><Stat icon={Library} label="Total cards" value={''+cards.length} foot={decks.length+' active decks'} tone="sand"/><Stat icon={Flame} label="Total reviews" value={''+logs.length} foot="All-time activity" tone="clay"/></section><div className="content-grid"><section className="panel deck-panel"><div className="panel-heading"><div><span className="panel-icon"><BookOpen size={19}/></span><h2>Your decks</h2></div><button className="text-button" onClick={()=>setPage('Library')}>View library <ArrowRight size={15}/></button></div><div className="deck-list">{filtered.map(d=><DeckRow key={d.id} deck={d} onClick={()=>startStudy(d)}/>) }{!filtered.length&&<div className="empty-state"><Sprout size={25}/><p>No decks yet. Import your first cards.</p></div>}</div><button className="add-deck" onClick={createDeck}><Plus size={16}/> Create a deck</button></section><section className="panel import-panel"><div className="panel-heading"><div><span className="panel-icon"><Sparkles size={19}/></span><h2>AI JSON Import</h2><span className="ready-pill">Basic + Cloze</span></div></div><p className="panel-description">Paste JSON generated from your notes. Preview before importing.</p><textarea className="json-input" value={json} onChange={e=>setJson(e.target.value)} placeholder={'Paste flashcard JSON here...\n{ "deck": "Biology", "cards": [...] }'}/><div className="import-actions"><button className="sample-button" onClick={()=>setJson(sample)}>Load sample</button><button className="primary-button" disabled={!json.trim()} onClick={validate}>Validate & preview <ArrowRight size={16}/></button></div><div className="import-foot"><Check size={14}/> Duplicate detection · Validation · Preview</div></section></div><div className="content-grid lower-grid"><section className="panel chart-panel"><div className="panel-heading"><div><span className="panel-icon"><Activity size={19}/></span><h2>Study activity</h2></div><span className="period-label">Last 30 days</span></div><p className="panel-description">Your actual review history</p><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={chart}><CartesianGrid vertical={false} stroke="#e9e8dc" strokeDasharray="3 4"/><XAxis dataKey="day" interval={5} axisLine={false} tickLine={false}/><Tooltip/><Bar dataKey="cards" fill="#6e8b68" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></section><section className="panel activity-panel"><div className="panel-heading"><h2>Quick actions</h2></div><Quick icon={CloudUpload} title="Import flashcards" onClick={()=>setPage('Import')}/><Quick icon={Library} title="Manage decks" onClick={()=>setPage('Library')}/><Quick icon={Download} title="Export backup" onClick={backup}/></section></div></div>}
+   {page==='Library'&&<div className="page-content"><div className="page-heading"><div><div className="eyebrow">COLLECTION</div><h1>Your deck library</h1><p>All your subjects, thoughtfully organized.</p></div><button className="primary-button" onClick={createDeck}><Plus size={16}/> New deck</button></div><section className="library-grid">{filtered.map(d=><div className="library-card" key={d.id}><div className="deck-art sage"><BookOpen size={27}/></div><h3>{d.name}</h3><p>{d.cards} cards · {d.due} due now</p><div className="progress-track"><span style={{width:(d.cards?100-Math.round(d.due/d.cards*100):0)+'%'}}/></div><div className="library-card-foot"><span>{d.cards?100-Math.round(d.due/d.cards*100):0}% not due</span><button className="small-study" onClick={()=>startStudy(d)}>Study <ArrowRight size={14}/></button></div></div>)}</section></div>}
+   {page==='Import'&&<div className="page-content"><div className="page-heading"><div><div className="eyebrow">ADD TO YOUR LIBRARY</div><h1>Import flashcards</h1><p>Paste structured JSON from your AI-generated study notes.</p></div></div><section className="panel import-page-panel"><div className="import-guide"><Sparkles size={22}/><div><strong>From notes to flashcards</strong><p>Use a deck name and cards array. Supports Basic Q&A and Cloze.</p></div></div><textarea className="json-input large" value={json} onChange={e=>setJson(e.target.value)} placeholder={sample}/><div className="import-actions"><button className="sample-button" onClick={()=>setJson(sample)}>Load sample JSON</button><button className="primary-button" disabled={!json.trim()} onClick={validate}>Validate & preview <ArrowRight size={16}/></button></div></section></div>}
+   {page==='Study'&&<div className="page-content"><div className="page-heading"><div><div className="eyebrow">FOCUS SESSION</div><h1>{activeDeck?.name??'Choose a deck'}</h1><p>{activeDeck?queue.length+' cards remaining':'Select a deck to begin reviewing.'}</p></div><button className="sample-button" onClick={()=>{setActiveDeck(null);setPage('Library')}}><ArrowLeft size={15}/> Back to decks</button></div>{!activeDeck&&<section className="study-chooser">{decks.map(d=><DeckRow key={d.id} deck={d} onClick={()=>startStudy(d)}/>)}</section>}{activeDeck&&queue.length===0&&<section className="panel session-complete"><CheckCircle2 size={38}/><h2>Session complete</h2><p>No more cards due in this deck right now.</p><button className="primary-button" onClick={()=>{setActiveDeck(null);setPage('Dashboard')}}>Back to dashboard</button></section>}{activeDeck&&queue[0]&&<section className="study-stage"><div className="study-progress"><span>Review</span><div><i style={{width:(1/(queue.length+1)*100)+'%'}}/></div><span>{queue.length} left</span></div><div className="flashcard"><span className="card-type">{queue[0].card_type==='cloze'?'CLOZE':'QUESTION'}</span><div className="flashcard-content">{queue[0].card_type==='cloze'?queue[0].cloze_text?.replace(/\{\{c\d+::(.*?)\}\}/g,revealed?'$1':'＿＿＿＿'):queue[0].front}</div>{revealed&&<div className="answer-block"><span>ANSWER</span><p>{queue[0].card_type==='cloze'?'Hidden text revealed above.':queue[0].back}</p></div>}<div className="flashcard-bottom">{!revealed?<button className="primary-button reveal-button" onClick={()=>setRevealed(true)}>Show answer <ArrowRight size={16}/></button>:<div className="rating-row"><span>How well did you remember?</span><div>{[{label:'Again',v:Rating.Again,cl:'again'},{label:'Hard',v:Rating.Hard,cl:'hard'},{label:'Good',v:Rating.Good,cl:'good'},{label:'Easy',v:Rating.Easy,cl:'easy'}].map(x=><button key={x.label} className={'rating-button '+x.cl} disabled={busy} onClick={()=>grade(x.v)}>{x.label}</button>)}</div></div>}</div></div><p className="study-hint">FSRS schedules your next review based on your rating.</p></section>}</div>}
+   {page==='Statistics'&&<div className="page-content"><div className="page-heading"><div><div className="eyebrow">LEARNING INSIGHTS</div><h1>Your study statistics</h1><p>Calculated from your saved review history.</p></div></div><section className="stats-grid"><Stat icon={CheckCircle2} label="Reviews today" value={''+todayCount} foot="Today" tone="green"/><Stat icon={Activity} label="Total reviews" value={''+logs.length} foot="All-time" tone="sage"/><Stat icon={Library} label="Cards" value={''+cards.length} foot="Across decks" tone="sand"/><Stat icon={Brain} label="Decks" value={''+decks.length} foot="Your collection" tone="clay"/></section><section className="panel chart-panel"><h2>Reviews in the last 30 days</h2><div className="chart-wrap tall"><ResponsiveContainer width="100%" height="100%"><BarChart data={chart}><CartesianGrid vertical={false} stroke="#e9e8dc" strokeDasharray="3 4"/><XAxis dataKey="day" interval={3}/><Tooltip/><Bar dataKey="cards" fill="#6e8b68" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></section></div>}
+   {page==='Settings'&&<div className="page-content"><div className="page-heading"><div><div className="eyebrow">PREFERENCES</div><h1>Settings & backup</h1><p>Keep a copy of your study data.</p></div></div><section className="panel setting-card"><Download size={25}/><h2>Export backup</h2><p>Download decks, cards and scheduling state as JSON.</p><button className="primary-button" onClick={backup}>Export backup <Download size={15}/></button><p className="warning-note">This is an anonymous workspace tied to this browser. Clearing browser data or signing out can make the cloud data inaccessible. Export backups regularly.</p></section></div>}
+  </main>
+  {preview&&parsed&&<div className="modal-backdrop" onClick={()=>setPreview(false)}><section className="preview-modal" onClick={e=>e.stopPropagation()}><div className="modal-heading"><div><span className="eyebrow">IMPORT PREVIEW</span><h2>{parsed.deck}</h2><p>{parsed.cards.length} valid · {invalid.length} invalid</p></div><button className="icon-button" onClick={()=>setPreview(false)}><X size={19}/></button></div>{invalid.length>0&&<div className="invalid-list"><strong><AlertCircle size={15}/> Invalid cards — excluded</strong>{invalid.map((x,i)=><p key={i}>{x}</p>)}</div>}<div className="preview-list">{parsed.cards.slice(0,8).map((c:any,i:number)=><div className="preview-card" key={i}><span>{i+1}</span><div><strong>{c.type==='cloze'?'Cloze deletion':c.front}</strong><p>{c.type==='cloze'?c.text:c.back}</p></div><CheckCircle2 size={17}/></div>)}</div><div className="modal-actions"><button className="sample-button" onClick={()=>setPreview(false)}>Back to edit</button><button className="primary-button" disabled={busy} onClick={doImport}>Import {parsed.cards.length} valid cards <ArrowRight size={16}/></button></div></section></div>}
+ </div>
 }
-
-function LayersIcon({ size=20 }: { size?: number }) { return <Library size={size}/> }
-function Stat({ icon: Icon, label, value, foot, tone }: { icon: typeof Clock3; label: string; value: string; foot: string; tone: string }) {
-  return <div className="stat-card"><div className="stat-top"><span className={`stat-icon ${tone}`}><Icon size={18}/></span><span>{label}</span></div><strong className="stat-value">{value}</strong><span className="stat-foot">{foot}</span><div className="stat-decoration"/></div>
-}
-function DeckRow({ deck, onClick }: { deck: Deck; onClick: () => void }) {
-  return <button className="deck-row" onClick={onClick}><span className={`deck-icon ${deck.tone}`}><deck.icon size={22}/></span><span className="deck-meta"><strong>{deck.name}</strong><small>{deck.cards} cards <i/> {deck.due} due today</small></span><span className="row-progress"><i style={{width:`${deck.progress}%`}}/></span><strong className="progress-number">{deck.progress}%</strong><ArrowRight className="row-arrow" size={16}/></button>
-}
-function Activity({ color, title, detail, time }: { color: string; title: string; detail: string; time: string }) {
-  return <div className="activity-row"><span className={`activity-dot ${color}`}/><div><strong>{title}</strong><p>{detail}</p></div><time>{time}</time></div>
-}
+function Stat({icon:Icon,label,value,foot,tone}:{icon:any;label:string;value:string;foot:string;tone:string}){return <div className="stat-card"><div className="stat-top"><span className={'stat-icon '+tone}><Icon size={18}/></span><span>{label}</span></div><strong className="stat-value">{value}</strong><span className="stat-foot">{foot}</span></div>}
+function DeckRow({deck,onClick}:{deck:Deck;onClick:()=>void}){return <button className="deck-row" onClick={onClick}><span className="deck-icon sage"><BookOpen size={22}/></span><span className="deck-meta"><strong>{deck.name}</strong><small>{deck.cards} cards <i/> {deck.due} due now</small></span><span className="row-progress"><i style={{width:(deck.cards?100-Math.round(deck.due/deck.cards*100):0)+'%'}}/></span><strong className="progress-number">{deck.cards?100-Math.round(deck.due/deck.cards*100):0}%</strong><ArrowRight className="row-arrow" size={16}/></button>}
+function Quick({icon:Icon,title,onClick}:{icon:any;title:string;onClick:()=>void}){return <button className="quick-action" onClick={onClick}><span><Icon size={18}/></span><div><strong>{title}</strong></div><ArrowRight size={15}/></button>}
