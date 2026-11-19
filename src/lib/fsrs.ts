@@ -20,6 +20,10 @@ export function rateFsrsCard(card: FsrsCard, rating: Rating, now = new Date()) {
   return scheduler.next(card, now, rating)
 }
 
-export function getFsrsCard(state: unknown): FsrsCard {
-  return state as FsrsCard
+export function getFsrsCard(state: any): FsrsCard {
+  return {
+    ...state,
+    due: state.due instanceof Date ? state.due : new Date(state.due),
+    last_review: state.last_review ? new Date(state.last_review) : undefined,
+  } as FsrsCard
 }
