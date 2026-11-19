@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import {
   BookOpen, Brain, ChartNoAxesColumnIncreasing, ChevronDown, CircleHelp, Clock3,
-  CloudUpload, Flame, Flower2, FlaskConical, GraduationCap, House, Leaf, Library,
+  CloudUpload, Flame, Flower2, FlaskConical, House, Leaf, Library,
   Search, Settings, Sparkles, Sprout, Sun, CheckCircle2, ArrowRight, MoreHorizontal,
-  Plus, X, Check, AlertCircle, Play, PanelLeftClose,
+  Plus, X, Check, AlertCircle, Play,
 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { importSchema } from './lib/import-schema'
@@ -90,7 +90,7 @@ export default function App() {
         <section className="stats-grid">
           <Stat icon={Clock3} label="Due today" value="24" foot="Ready when you are" tone="sage"/>
           <Stat icon={CheckCircle2} label="Reviewed" value="18" foot="Cards completed today" tone="green"/>
-          <Stat icon={LayersIcon} label="Total cards" value={String(totalCards)} foot={`${decks.length} active decks`} tone="sand"/>
+          <Stat icon={Library} label="Total cards" value={String(totalCards)} foot={`${decks.length} active decks`} tone="sand"/>
           <Stat icon={Flame} label="Study streak" value="12 days" foot="Keep the rhythm going" tone="clay"/>
         </section>
         <div className="content-grid">
