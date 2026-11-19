@@ -1,83 +1,60 @@
 # Amplicard
 
-A personal flashcard web app built around an Obsidian → AI → JSON → Review workflow.
+A personal, earth-tone flashcard app built around the Obsidian → external AI → JSON → review workflow.
 
-## Product direction
+## Core workflow
 
-Amplicard is a focused study tool, not a social learning platform. The fastest path from notes to usable flashcards is the primary product goal.
+1. Summarize notes in Obsidian.
+2. Ask an external AI to produce Amplicard JSON.
+3. Paste JSON into Import, validate every card, and preview.
+4. Import into a deck; duplicate cards are skipped with a visible result.
+5. Review due cards using FSRS (Again / Hard / Good / Easy).
 
-### Core workflow
-1. Write and summarize study notes in Obsidian.
-2. Ask an external AI to convert the notes into Amplicard JSON.
-3. Paste the JSON into Import.
-4. Validate and preview cards, choose a deck, then import.
-5. Review cards using spaced repetition.
+## Features
 
-## Initial product scope
+- Dashboard with real deck counts, due cards, daily reviews, and 30-day activity.
+- Deck library and deck creation.
+- JSON import for Basic Q&A and Cloze cards; omitted type defaults to basic.
+- Invalid cards are listed with their card numbers; they are not silently discarded.
+- Duplicate detection within the destination deck.
+- Study sessions with answer reveal and FSRS scheduling.
+- Review history and statistics.
+- JSON backup export.
+- Anonymous Supabase Auth session; no email or password is requested.
 
-- Dashboard: due cards, new cards, review progress, and a clear Continue Studying action.
-- Deck Library: create, rename, browse, and search decks.
-- Import: paste JSON, validate it, preview valid/invalid cards, detect duplicates, and import selected cards.
-- Study: Basic Q&A and Cloze cards; reveal answer; rate Again / Hard / Good / Easy.
-- Statistics: review activity and retention-oriented progress.
-- Settings: export/import backup and review preferences.
+## Stack
 
-Out of scope for the first release: social features, public decks, collaboration, in-app AI generation, payments, and gamification.
+- React 19 + TypeScript + Vite
+- Supabase Postgres + Supabase Auth + Row Level Security
+- ts-fsrs 5.4.2
+- Zod validation, Recharts, Lucide
+- Vercel deployment
 
-## Design direction
+## Data and privacy
 
-- Calm, editorial study workspace; avoid a generic AI-chat aesthetic.
-- Light neutral canvas, restrained indigo accent, strong readable typography.
-- Compact left navigation on desktop; responsive navigation on small screens.
-- Generous whitespace around study cards; minimal distractions during review.
-- Clear hierarchy: today's workload first, deck organization second, analytics third.
+Each browser creates an anonymous Supabase identity. The browser session persists locally and RLS scopes all records to that identity. This is intentionally passwordless, but it is not portable between browsers/devices: clearing browser storage or losing the session can make the anonymous account inaccessible. Export JSON backups regularly.
 
-## Technical direction
+The frontend uses only the Supabase publishable key. Never expose a service-role key in client code.
 
-- Frontend: React + TypeScript + Vite.
-- UI: Tailwind CSS with accessible reusable components.
-- Backend: Supabase Postgres + Supabase Auth.
-- Data access: Row Level Security; every user-owned record is scoped to the authenticated user.
-- Hosting: Vercel, linked to this GitHub repository.
-- Scheduling: FSRS implementation/library rather than a custom scheduling algorithm.
-- Validation: Zod schemas for imported JSON.
-- Backup: JSON export/import.
+## Supabase setup
 
-## Import JSON contract
+1. Enable Anonymous Sign-Ins in Authentication → Providers.
+2. Keep RLS enabled on all public user-data tables.
+3. Configure Vercel environment variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (the modern publishable key).
+4. Redeploy after changing environment variables.
 
-```json
-{
-  "deck": "Biology",
-  "cards": [
+## Import format
+
     {
-      "type": "basic",
-      "front": "What is ...?",
-      "back": " ...",
-      "tags": ["biology", "cell"]
-    },
-    {
-      "type": "cloze",
-      "text": "The {{c1::mitochondrion}} produces most cellular ATP.",
-      "tags": ["biology"]
+      "deck": "Biology",
+      "cards": [
+        { "type": "basic", "front": "What is ...?", "back": "...", "tags": ["biology"] },
+        { "type": "cloze", "text": "The {{c1::mitochondrion}} produces most cellular ATP." }
+      ]
     }
-  ]
-}
-```
 
-The importer should also accept a missing `type` as `basic` for simple AI-generated payloads. It must never silently discard invalid cards.
+A missing type is treated as basic.
 
-## Initial data model
+## Current scope
 
-- profiles: user preferences and review settings.
-- decks: user-owned deck metadata.
-- cards: user-owned card content, type, tags, and deck relation.
-- card_scheduling: FSRS state per card.
-- review_logs: immutable review events for statistics and schedule reconstruction.
-
-All user data tables must have RLS enabled and ownership policies. No service-role key may be exposed to the browser.
-
-## Build phases
-
-1. App shell, dashboard, deck library, import validation and preview.
-2. Study session, FSRS scheduling, review history.
-3. Statistics, backup/restore, polish and responsive QA.
+No social features, public decks, in-app AI generation, payments, or multi-user collaboration. Study algorithm and scheduling are delegated to the maintained FSRS library rather than a custom implementation.
