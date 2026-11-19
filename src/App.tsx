@@ -37,6 +37,7 @@ export default function App(){
  })().catch(e=>{if(live){setAuthError(e.message+' — Enable Anonymous Sign-Ins in Supabase Authentication → Providers.');setReady(true)}})
  return()=>{live=false}},[load])
  const refresh=async()=>{if(uid)await load(uid)}
+ useEffect(()=>{if(!uid)return;const syncOnReturn=()=>{if(document.visibilityState==='visible')load(uid).catch((e:any)=>setError(e.message))};window.addEventListener('focus',syncOnReturn);document.addEventListener('visibilitychange',syncOnReturn);return()=>{window.removeEventListener('focus',syncOnReturn);document.removeEventListener('visibilitychange',syncOnReturn)}},[uid,load])
  const due=decks.reduce((n,d)=>n+d.due,0),today=new Date();today.setHours(0,0,0,0)
  const todayCount=logs.filter(x=>Date.parse(x.reviewed_at)>=today.getTime()).length
  const chart=useMemo(()=>{const m=new Map<string,number>();for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);m.set(d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),0)}logs.forEach(x=>{const k=new Date(x.reviewed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});if(m.has(k))m.set(k,(m.get(k)??0)+1)});return [...m].map(([day,cards])=>({day,cards}))},[logs])
