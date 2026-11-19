@@ -62,9 +62,9 @@ export default function App(){
   }catch(e:any){setError(e.message)}finally{setBusy(false)}
  }
  async function createDeck(){const name=window.prompt('Deck name');if(!name?.trim()||!supabase)return;const r=await supabase.from('decks').insert({user_id:uid,name:name.trim()});if(r.error)setError(r.error.message);else{await refresh();setNotice('Deck created.')}}
- function startStudy(d:Deck){const q=cards.filter(c=>c.deck_id===d.id&&(!c.card_scheduling?.due_at||Date.parse(c.card_scheduling.due_at)<=Date.now()));setActiveDeck(d);setQueue(q);setRevealed(false);setPage('Study')}
- async function grade(rating:Rating){if(!supabase||!queue[0]?.card_scheduling?.fsrs_state)return;setBusy(true);try{
-  const c=queue[0],now=new Date(),res=rateFsrsCard(getFsrsCard(c.card_scheduling.fsrs_state),rating,now),s=res.card
+ function startStudy(d:Deck){const q=cards.filter(c=>{const schedule=c.card_scheduling;return c.deck_id===d.id&&(!schedule||!schedule.due_at||Date.parse(schedule.due_at)<=Date.now())});setActiveDeck(d);setQueue(q);setRevealed(false);setPage('Study')}
+ async function grade(rating:Rating){const c=queue[0],savedState=c?.card_scheduling?.fsrs_state;if(!supabase||!c||!savedState)return;setBusy(true);try{
+  const now=new Date(),res=rateFsrsCard(getFsrsCard(savedState),rating,now),s=res.card
   const state=['new','learning','review','relearning'][s.state]??'new'
   const u=await supabase.from('card_scheduling').update({fsrs_state:s,due_at:s.due.toISOString(),stability:s.stability,difficulty:s.difficulty,elapsed_days:s.elapsed_days,scheduled_days:s.scheduled_days,reps:s.reps,lapses:s.lapses,learning_steps:s.learning_steps,state,updated_at:now.toISOString()}).eq('card_id',c.id).eq('user_id',uid)
   if(u.error)throw u.error
