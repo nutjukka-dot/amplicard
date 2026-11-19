@@ -17,7 +17,7 @@ export function newFsrsCard(now = new Date()): FsrsCard {
 }
 
 export function rateFsrsCard(card: FsrsCard, rating: Rating, now = new Date()) {
-  return scheduler.next(card, now, rating)
+  return scheduler.next(card, now, rating as any)
 }
 
 export function getFsrsCard(state: any): FsrsCard {
