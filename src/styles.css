@@ -304,3 +304,5 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px soli
 .account-actions{display:flex;gap:9px;flex-wrap:wrap}
 .account-actions>*{display:inline-flex;align-items:center;justify-content:center}
 @media(max-width:720px){.account-actions>*{flex:1;min-height:44px}.account-input{font-size:16px}}
+
+@media(max-width:720px){.sidebar nav{grid-template-columns:repeat(6,minmax(0,1fr))}.nav-item{font-size:8px}}
