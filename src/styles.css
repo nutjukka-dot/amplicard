@@ -300,3 +300,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px soli
  .delete-deck{width:32px;height:32px}
  .small-study{padding:7px 8px}
 }
+
+.account-actions{display:flex;gap:9px;flex-wrap:wrap}
+.account-actions>*{display:inline-flex;align-items:center;justify-content:center}
+@media(max-width:720px){.account-actions>*{flex:1;min-height:44px}.account-input{font-size:16px}}
