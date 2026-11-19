@@ -52,13 +52,15 @@ export default function App(){
   try{let d=decks.find(x=>x.name.toLowerCase()===parsed.deck.toLowerCase())
    if(!d){const r=await supabase.from('decks').insert({user_id:uid,name:parsed.deck}).select('id,name').single();if(r.error)throw r.error;d={...r.data,cards:0,due:0}}
    const known=cards.filter(c=>c.deck_id===d!.id)
-   const add=parsed.cards.filter((c:any)=>!known.some(old=>(old.card_type==='cloze'?old.cloze_text:(old.front+'|'+old.back))?.trim().toLowerCase()===(c.type==='cloze'?c.text:(c.front+'|'+c.back)).trim().toLowerCase()))
+   const seen=new Set<string>()
+   const add=parsed.cards.filter((c:any)=>{const key=(c.type==='cloze'?c.text:(c.front+'|'+c.back)).trim().toLowerCase();const exists=known.some(old=>(old.card_type==='cloze'?old.cloze_text:(old.front+'|'+old.back))?.trim().toLowerCase()===key);if(exists||seen.has(key))return false;seen.add(key);return true})
+   const duplicateCount=parsed.cards.length-add.length
    if(!add.length){setNotice('All valid cards already exist in this deck.');setPreview(false);return}
    const ins=await supabase.from('cards').insert(add.map((c:any)=>({user_id:uid,deck_id:d!.id,card_type:c.type??'basic',front:c.type==='cloze'?null:c.front,back:c.type==='cloze'?null:c.back,cloze_text:c.type==='cloze'?c.text:null,tags:c.tags??[]}))).select('id')
    if(ins.error)throw ins.error
    const sched=await supabase.from('card_scheduling').insert((ins.data??[]).map(c=>{const s=newFsrsCard();return{card_id:c.id,user_id:uid,due_at:s.due.toISOString(),fsrs_state:s}}))
    if(sched.error)throw sched.error
-   setPreview(false);setJson('');setNotice('Imported '+ins.data.length+' cards. '+invalid.length+' invalid cards were excluded after review.');await refresh()
+   setPreview(false);setJson('');setNotice('Imported '+ins.data.length+' cards. Skipped '+duplicateCount+' duplicates and '+invalid.length+' invalid cards.');await refresh()
   }catch(e:any){setError(e.message)}finally{setBusy(false)}
  }
  async function createDeck(){const name=window.prompt('Deck name');if(!name?.trim()||!supabase)return;const r=await supabase.from('decks').insert({user_id:uid,name:name.trim()});if(r.error)setError(r.error.message);else{await refresh();setNotice('Deck created.')}}
