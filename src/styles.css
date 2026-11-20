@@ -443,3 +443,14 @@ button:disabled{cursor:wait;opacity:.58;transform:none!important}
 .study-order-options span{display:grid;gap:4px}
 .study-order-options strong{font-size:12px;font-weight:650;color:#354c3e}
 .study-order-options small{font-size:11px;line-height:1.5;color:#7a897f}
+
+
+.return-position-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.return-position-grid label{display:grid;gap:9px;padding:13px 14px;border:1px solid #e1e9e3;border-radius:9px;background:#fbfdfb}
+.return-position-grid label>span{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.return-position-grid strong{font-size:12px;font-weight:650;color:#354c3e}
+.return-position-grid b{font-size:13px;font-variant-numeric:tabular-nums;color:#416b57}
+.return-position-grid input[type=range]{width:100%;accent-color:#557b61;cursor:pointer}
+.return-position-grid small,.setting-note{font-size:11px;line-height:1.5;color:#7a897f}
+.setting-note{margin-top:13px}
+@media(max-width:560px){.return-position-grid{grid-template-columns:1fr}}
